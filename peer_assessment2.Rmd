@@ -1,7 +1,7 @@
 ---
 title: "Answering Some Basic Questions About Severe Weather Events Using the NOAA Storm Database"
 author: "Eric Bratt"
-date: "Sunday, November 23, 2014"
+date: "23 November 2014"
 output: html_document
 ---
 
@@ -62,12 +62,12 @@ Which types of events are most harmful with respect to population health? How ma
 
 ```{r event_types, echo=TRUE, results='asis'}
 numeventtypes <- length(table(data$EVTYPE))
-print(numeventtypes, type="html", include.rownames=FALSE)
+print(numeventtypes, type='html', include.rownames=FALSE)
 ```
 
 There are 985 unique event types in the data, so we need to pare this down a bit to, say, the top 10 most fatal event types versus the top 10 most injury-causing event types. To do this, we can use a pareto chart from the ***qcc*** package in R. However, first we must limit the data to only the top ten most fatal event types and the top ten most injury-causing event types. We use the ***dplyr*** package in R to group by the event type and aggregate the number of fatalities and again by the number of injuries.
 
-```{r event_types_fatalities, echo=TRUE, results='as-is'}
+```{r event_types_fatalities, echo=TRUE, results='asis', comment=NA}
 if (!suppressWarnings(require("dplyr"))) {
     install.packages("dplyr")
     library(dplyr)
@@ -83,11 +83,11 @@ topfatals <- data %.%
     arrange(desc(proportion))
 top10fatals <- as.data.frame(head(topfatals,10))
 xtbl_fatals <- xtable(top10fatals)
-print(xtbl_fatals, type="html", include.rownames=FALSE)
+print(xtbl_fatals, type='html', include.rownames=FALSE)
 
 ```
 
-```{r event_types_injuries, echo=TRUE, results='as-is'}
+```{r event_types_injuries, echo=TRUE, results='asis', comment=NA}
 topinjuries <- data %.%
     group_by(EVTYPE) %.%
     summarize(n=sum(INJURIES)) %.%
@@ -95,11 +95,23 @@ topinjuries <- data %.%
     arrange(desc(proportion))
 top10injuries <- as.data.frame(head(topinjuries, 10))
 xtbl_injuries <- xtable(top10injuries)
-print(xtbl_injuries, type="html", include.rownames=FALSE)
+print(xtbl_injuries, type='html', include.rownames=FALSE)
 
 ```
 
-```{r pareto, echo=TRUE, results='asis'}
+```{r event_types_damages, echo=TRUE, results='asis', comment=NA}
+topdamages <- data %.%
+    group_by(EVTYPE) %.%
+    summarize(n=sum(PROPDMG)) %.%
+    mutate(proportion=n/sum(n)) %.%
+    arrange(desc(proportion))
+top10damages <- as.data.frame(head(topdamages, 10))
+xtbl_damages <- xtable(top10damages)
+print(xtbl_damages, type='html', include.rownames=FALSE)
+
+```
+
+```{r pareto, echo=TRUE, results='markup', comment=NA, fig.height=10}
 if (!suppressWarnings(require("qcc"))) {
     install.packages("qcc")
     library(qcc)
@@ -120,7 +132,18 @@ pareto.chart(xtabs(n ~ EVTYPE,
              ylab2 = "Cumulative Percentage", 
              cumperc = seq(0, 100, by = 20), 
              main = "Pareto Chart for Events Causing Injuries")
+
+pareto.chart(xtabs(n ~ EVTYPE, 
+                   data = top10damages, 
+                   drop.unused.levels = TRUE), 
+             ylab = "Damages (in Billions of $'s", 
+             ylab2 = "Cumulative Percentage", 
+             cumperc = seq(0, 100, by = 20), 
+             main = "Pareto Chart for Events Causing Damages")
 ```
 
 ##Results
-It appears as though the ...
+It appears as though the event type of most concern is ***TORNADO***:  
+- Fatalities: Tornado (37% of the total fatalities)  
+- Injuries: Tornado (65% of the total injuries)  
+- Property Damages: Tornado (30% of the total damages)  
