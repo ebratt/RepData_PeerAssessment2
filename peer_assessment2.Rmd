@@ -1,0 +1,126 @@
+---
+title: "Answering Some Basic Questions About Severe Weather Events Using the NOAA Storm Database"
+author: "Eric Bratt"
+date: "Sunday, November 23, 2014"
+output: html_document
+---
+
+##Synopsis
+The U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. The events in the database start in the year 1950 and end in November 2011. This report addresses the questions:  
+
+1. Across the United States, which types of events are most harmful with respect to population health?  
+2. Across the United States, which types of events have the greatest economic consequences?  
+
+This report was created for the course ***https://class.coursera.org/repdata-008*** on the following environment:
+
+```{r info, echo=F, results='markup'}
+R.version
+```
+
+##Downloading the directive
+1. Download the documentation in PDF form.
+
+```{r doc, echo=TRUE, results='hide'}
+fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf"
+dateDownloaded <- date()
+if (!file.exists("doc.pdf")) {
+    setInternet2(TRUE)
+    download.file(fileURL,"doc.pdf", method="auto", quiet=T, mode="wb")
+}
+```
+
+##Data Processing
+1. Download the NOAA database in raw and compressed (.bz2) form. 
+2. Check to see if the R.utils package is installed. If not, install and load it in the session. 
+3. Uncompress the database using the bunzip2() function of R.utils package.
+4. Read the uncompressed csv file into an R dataframe.
+
+```{r load, echo=TRUE, results='hide'}
+fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+dateDownloaded <- date()
+if (!file.exists("data")) {
+    dir.create("data")
+}
+if (!file.exists("data/StormData.csv.bz2")) {
+    download.file(fileURL,"data/StormData.csv.bz2", method="auto", quiet=T)
+}
+if (!suppressWarnings(require("R.utils"))) {
+    install.packages("R.utils")
+    library(R.utils)
+}
+if (!file.exists("data/StormData.csv")) {
+    bunzip2("data/StormData.csv.bz2", detname = "data/StormData.csv", remove = FALSE)
+}
+if (!exists("data")) {
+    data <- read.csv("data/StormData.csv", header = TRUE)
+}
+
+```
+
+##Analysis
+Which types of events are most harmful with respect to population health? How many unique event types are there in the data?  
+
+```{r event_types, echo=TRUE, results='asis'}
+numeventtypes <- length(table(data$EVTYPE))
+print(numeventtypes, type="html", include.rownames=FALSE)
+```
+
+There are 985 unique event types in the data, so we need to pare this down a bit to, say, the top 10 most fatal event types versus the top 10 most injury-causing event types. To do this, we can use a pareto chart from the ***qcc*** package in R. However, first we must limit the data to only the top ten most fatal event types and the top ten most injury-causing event types. We use the ***dplyr*** package in R to group by the event type and aggregate the number of fatalities and again by the number of injuries.
+
+```{r event_types_fatalities, echo=TRUE, results='as-is'}
+if (!suppressWarnings(require("dplyr"))) {
+    install.packages("dplyr")
+    library(dplyr)
+}
+if (!suppressWarnings(require("xtable"))) {
+    install.packages("xtable")
+    library(xtable)
+}
+topfatals <- data %.%
+    group_by(EVTYPE) %.%
+    summarize(n=sum(FATALITIES)) %.%
+    mutate(proportion=n/sum(n)) %.%
+    arrange(desc(proportion))
+top10fatals <- as.data.frame(head(topfatals,10))
+xtbl_fatals <- xtable(top10fatals)
+print(xtbl_fatals, type="html", include.rownames=FALSE)
+
+```
+
+```{r event_types_injuries, echo=TRUE, results='as-is'}
+topinjuries <- data %.%
+    group_by(EVTYPE) %.%
+    summarize(n=sum(INJURIES)) %.%
+    mutate(proportion=n/sum(n)) %.%
+    arrange(desc(proportion))
+top10injuries <- as.data.frame(head(topinjuries, 10))
+xtbl_injuries <- xtable(top10injuries)
+print(xtbl_injuries, type="html", include.rownames=FALSE)
+
+```
+
+```{r pareto, echo=TRUE, results='asis'}
+if (!suppressWarnings(require("qcc"))) {
+    install.packages("qcc")
+    library(qcc)
+}
+
+pareto.chart(xtabs(n ~ EVTYPE, 
+                   data = top10fatals, 
+                   drop.unused.levels = TRUE), 
+             ylab = "Fatalities", 
+             ylab2 = "Cumulative Percentage", 
+             cumperc = seq(0, 100, by = 20), 
+             main = "Pareto Chart for Events Causing Fatalities")
+
+pareto.chart(xtabs(n ~ EVTYPE, 
+                   data = top10injuries, 
+                   drop.unused.levels = TRUE), 
+             ylab = "Injuries", 
+             ylab2 = "Cumulative Percentage", 
+             cumperc = seq(0, 100, by = 20), 
+             main = "Pareto Chart for Events Causing Injuries")
+```
+
+##Results
+It appears as though the ...
