@@ -6,34 +6,51 @@ output: html_document
 ---
 
 ##Synopsis
-The U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. The events in the database start in the year 1950 and end in November 2011. This report addresses the questions:  
+The U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage. The events in the database correspond to 902,297 observations starting in the year 1950 and ending in November 2011. The data can be found here:  
+
+https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2  
+
+This report addresses the questions:  
 
 1. Across the United States, which types of events are most harmful with respect to population health?  
 2. Across the United States, which types of events have the greatest economic consequences?  
 
 This report was created for the course ***https://class.coursera.org/repdata-008*** on the following environment:
 
-```{r info, echo=F, results='markup'}
+```{r info, echo=F, results='markup', comment=NA}
 R.version
-```
+```  
 
 ##Downloading the directive
-1. Download the documentation in PDF form.
+1. Download the NOAA study's documentation in PDF form. This file contains information about the study and the variable descriptions in the data.
+2. Download the NOAA study's frequently asked questions guide in PDF form. This file contains codes, abbreviations, and notes regarding the database.  
 
 ```{r doc, echo=TRUE, results='hide'}
-fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf"
-dateDownloaded <- date()
+docURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf"
 if (!file.exists("doc.pdf")) {
-    setInternet2(TRUE)
-    download.file(fileURL,"doc.pdf", method="auto", quiet=T, mode="wb")
+    os <- (Sys.info()[['sysname']])
+    if (os == 'Windows') {
+        download.file(docURL, "doc.pdf", quiet=T, mode='wb')
+    }
+    else {
+        download.file(docURL, "doc.pdf", method='curl', quiet=T, mode='wb')
+    }
 }
-```
+faqURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf"
+if (!file.exists("faq.pdf")) {
+    os <- (Sys.info()[['sysname']])
+    if (os == 'Windows') {
+        download.file(faqRL, "faq.pdf", quiet=T, mode='wb')
+    }
+    else {
+        download.file(faqURL, "faq.pdf", method='curl', quiet=T, mode='wb')
+    }
+}
+```  
 
 ##Data Processing
-1. Download the NOAA database in raw and compressed (.bz2) form. 
-2. Check to see if the R.utils package is installed. If not, install and load it in the session. 
-3. Uncompress the database using the bunzip2() function of R.utils package.
-4. Read the uncompressed csv file into an R dataframe.
+1. Download the NOAA database in raw and compressed (.bz2) form. This will check the operating system type and if the OS is not Windows, then it uses method='curl'.  
+2. Read the bz2 file as csv into an R dataframe.
 
 ```{r load, echo=TRUE, results='hide'}
 fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
@@ -42,20 +59,24 @@ if (!file.exists("data")) {
     dir.create("data")
 }
 if (!file.exists("data/StormData.csv.bz2")) {
-    download.file(fileURL,"data/StormData.csv.bz2", method="auto", quiet=T)
+    if (os == 'Windows') {
+        download.file(fileURL,"data/StormData.csv.bz2", quiet=T)
+    }
+    else {
+        download.file(fileURL,"data/StormData.csv.bz2", method="curl", quiet=T)
+    }
 }
 if (!suppressWarnings(require("R.utils"))) {
     install.packages("R.utils")
     library(R.utils)
 }
-if (!file.exists("data/StormData.csv")) {
-    bunzip2("data/StormData.csv.bz2", detname = "data/StormData.csv", remove = FALSE)
-}
 if (!exists("data")) {
-    data <- read.csv("data/StormData.csv", header = TRUE)
+    data <- read.csv(bzfile("data/StormData.csv.bz2"), 
+                     header = TRUE, 
+                     stringsAsFactors=FALSE)
 }
 
-```
+```  
 
 ##Analysis
 Which types of events are most harmful with respect to population health? How many unique event types are there in the data?  
@@ -63,18 +84,52 @@ Which types of events are most harmful with respect to population health? How ma
 ```{r event_types, echo=TRUE, results='asis'}
 numeventtypes <- length(table(data$EVTYPE))
 print(numeventtypes, type='html', include.rownames=FALSE)
-```
+```  
 
-There are 985 unique event types in the data, so we need to pare this down a bit to, say, the top 10 most fatal event types versus the top 10 most injury-causing event types. To do this, we can use a pareto chart from the ***qcc*** package in R. However, first we must limit the data to only the top ten most fatal event types and the top ten most injury-causing event types. We use the ***dplyr*** package in R to group by the event type and aggregate the number of fatalities and again by the number of injuries.
+There are 985 unique event types in the data, and many of these event types are duplications with different unique names. Additionally, it was provided by Dr. Peng that:  
+
+"In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete."  
+
+Because of this, we decided to look at the number of observations by year and select only those observations that fall outside the top 80% number of observations by ***BGN_DATE***. To do this, we convert the ***BGN_DATE*** field from a factor to a date and crate a pareto chart of the ***BGN_DATE*** field:  
+
+```{r years, echo=TRUE, results='asis', comment='NA'}
+if (!suppressWarnings(require("qcc"))) {
+    install.packages("qcc")
+    library(qcc)
+}
+year <- as.numeric(format(as.Date(data$BGN_DATE, format="%m/%d/%Y"), "%Y"))
+if (!suppressWarnings(require("xtable"))) {
+    install.packages("xtable")
+    library(xtable)
+}
+xtbl_year <- xtable(pareto.chart(table(year), plot=FALSE))
+print(xtbl_year, type='html')
+```  
+
+It looks like 80% of the observations fall between the years 1992 and 2011. Therefore, we decided to limit the analysis to the years 1992 through 2011. As such, we select all rows where the ***BGN_DATE*** is between 1992 and 2011. Additionally, we only care about the date of the event, event type, number of fatalities and injuries, and amount of property and crop damage. As such, we will limit the selected fields to the following:  
+
+- BGN_DATE
+- EVTYPE
+- FATALITIES
+- INJURIES
+- PROPDMG
+- PROPDMGEXP
+- CROPDMG
+- CROPDMGEXP  
+
+```{r select, echo=TRUE, results='hide'}
+data <- subset(data, BGN_DATE > as.Date('12/31/1991', format='%m/%d/%Y'))
+cols <- c("BGN_DATE", "EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", 
+          "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
+data <- data[cols]
+```  
+
+Now we are ready to look at the events that caused the most fatalities between 1992 and 2011:  
 
 ```{r event_types_fatalities, echo=TRUE, results='asis', comment=NA}
 if (!suppressWarnings(require("dplyr"))) {
     install.packages("dplyr")
     library(dplyr)
-}
-if (!suppressWarnings(require("xtable"))) {
-    install.packages("xtable")
-    library(xtable)
 }
 topfatals <- data %.%
     group_by(EVTYPE) %.%
@@ -85,7 +140,9 @@ top10fatals <- as.data.frame(head(topfatals,10))
 xtbl_fatals <- xtable(top10fatals)
 print(xtbl_fatals, type='html', include.rownames=FALSE)
 
-```
+```  
+
+And we can also look at the events that caused the most injuries between 1992 and 2011:  
 
 ```{r event_types_injuries, echo=TRUE, results='asis', comment=NA}
 topinjuries <- data %.%
@@ -97,26 +154,48 @@ top10injuries <- as.data.frame(head(topinjuries, 10))
 xtbl_injuries <- xtable(top10injuries)
 print(xtbl_injuries, type='html', include.rownames=FALSE)
 
-```
+```  
+
+According to page 12 of the directive, in an attempt to save space in the data: 
+
+"Estimates should be rounded to three significant digits, followed by an alphabetical character signifying the magnitude of the number, i.e., 1.55B for $1,550,000,000. Alphabetical characters used to signify magnitude include “K” for thousands, “M” for millions, and “B” for billions."  
+
+However, when we summarize the ***PROPDMGEXP*** and ***CROPDMGEXP*** columns, we see that there are identifiers that are not included in the documentation:  
+
+```{r identifiers, echo=TRUE, results='asis', comment='NA'}
+print(xtable(as.data.frame(t(summary(data$PROPDMGEXP)))), type='html')
+print(xtable(as.data.frame(t(summary(data$CROPDMGEXP)))), type='html')
+```  
+
+Additionally, it looks like some of the identifiers are capitalized and some are not. Because of this, we convert the lower-case identifiers to upper-case. Then we can convert the estimated economic damages to real dollars prior to analyzing the data. To do this we must exponentiate the damages according to their corresponding identifier. We assume that if an identifier is not recognized, the amount of the damage is stated in its nominal terms:   
+
+```{r cleanup, echo=TRUE, results='hide'}
+data$PROPDMG[which(data$PROPDMGEXP %in% c('h','H'))] <- 
+    data$PROPDMG[which(data$PROPDMGEXP %in% c('h','H'))]*10^2
+data$PROPDMG[which(data$PROPDMGEXP %in% c('k','K'))] <- 
+    data$PROPDMG[which(data$PROPDMGEXP %in% c('k','K'))]*10^3
+data$PROPDMG[which(data$PROPDMGEXP %in% c('m','M'))] <- 
+    data$PROPDMG[which(data$PROPDMGEXP %in% c('m','M'))]*10^6
+data$PROPDMG[which(data$PROPDMGEXP %in% c('b','B'))] <- 
+    data$PROPDMG[which(data$PROPDMGEXP %in% c('b','B'))]*10^9
+```  
+
+And now we can look at the events that caused the most economic damages between 1992 and 2011:  
 
 ```{r event_types_damages, echo=TRUE, results='asis', comment=NA}
 topdamages <- data %.%
     group_by(EVTYPE) %.%
-    summarize(n=sum(PROPDMG)) %.%
+    summarize(n=sum(PROPDMG + CROPDMG)) %.%
     mutate(proportion=n/sum(n)) %.%
     arrange(desc(proportion))
 top10damages <- as.data.frame(head(topdamages, 10))
 xtbl_damages <- xtable(top10damages)
 print(xtbl_damages, type='html', include.rownames=FALSE)
+```  
 
-```
+Now we can plot the top 10 event types for each of fatalities, injuries, and economic damages in a pareto chart to really ***see*** which ones are the worst:  
 
 ```{r pareto, echo=TRUE, results='markup', comment=NA, fig.height=10}
-if (!suppressWarnings(require("qcc"))) {
-    install.packages("qcc")
-    library(qcc)
-}
-
 pareto.chart(xtabs(n ~ EVTYPE, 
                    data = top10fatals, 
                    drop.unused.levels = TRUE), 
@@ -124,6 +203,7 @@ pareto.chart(xtabs(n ~ EVTYPE,
              ylab2 = "Cumulative Percentage", 
              cumperc = seq(0, 100, by = 20), 
              main = "Pareto Chart for Events Causing Fatalities")
+abline(h=(sum(top10fatals$n)*.8),col="red",lwd=4)
 
 pareto.chart(xtabs(n ~ EVTYPE, 
                    data = top10injuries, 
@@ -132,18 +212,21 @@ pareto.chart(xtabs(n ~ EVTYPE,
              ylab2 = "Cumulative Percentage", 
              cumperc = seq(0, 100, by = 20), 
              main = "Pareto Chart for Events Causing Injuries")
+abline(h=(sum(top10injuries$n)*.8),col="red",lwd=4)
 
 pareto.chart(xtabs(n ~ EVTYPE, 
                    data = top10damages, 
                    drop.unused.levels = TRUE), 
-             ylab = "Damages (in Billions of $'s", 
+             ylab = "Damages (in $'s)", 
              ylab2 = "Cumulative Percentage", 
              cumperc = seq(0, 100, by = 20), 
              main = "Pareto Chart for Events Causing Damages")
-```
+abline(h=(sum(top10damages$n)*.8),col="red",lwd=4)
+```   
 
 ##Results
-It appears as though the event type of most concern is ***TORNADO***:  
-- Fatalities: Tornado (37% of the total fatalities)  
-- Injuries: Tornado (65% of the total injuries)  
-- Property Damages: Tornado (30% of the total damages)  
+Between 1992 and 2011, ***EXCESSIVE HEAT*** is the event type that caused the most fatalities, ***TORNADO*** is the event type that caused the most injuries, and ***HURRICANE/TYPHOON*** is the event type that caused the most economic damages to property and crops. 
+
+
+qcc package library created by:  
+Scrucca, L. (2004). qcc: an R package for quality control charting and statistical process control. R News 4/1, 11-17.
