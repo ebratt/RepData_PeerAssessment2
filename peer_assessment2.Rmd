@@ -1,8 +1,14 @@
 ---
-title: "Answering Some Basic Questions About Severe Weather Events Using the NOAA Storm Database"
+title: Answering Some Basic Questions About Severe Weather Events Using the NOAA Storm
+  Database
 author: "Eric Bratt"
 date: "23 November 2014"
-output: html_document
+output:
+  html_document:
+    fig_caption: yes
+    highlight: espresso
+    number_sections: yes
+    theme: readable
 ---
 
 ##Synopsis
@@ -90,7 +96,7 @@ There are 985 unique event types in the data, and many of these event types are 
 
 "In the earlier years of the database there are generally fewer events recorded, most likely due to a lack of good records. More recent years should be considered more complete."  
 
-Because of this, we decided to look at the number of observations by year and select only those observations that fall outside the top 80% number of observations by ***BGN_DATE***. To do this, we convert the ***BGN_DATE*** field from a factor to a date and crate a pareto chart of the ***BGN_DATE*** field:  
+Because of this, we decided to look at the number of observations by year and select only those observations that fall outside the top 80% number of observations by ***BGN_DATE***. To do this, we convert the ***BGN_DATE*** field from a factor to a date and crate a Pareto chart of the ***BGN_DATE*** field:  
 
 ```{r years, echo=TRUE, results='asis', comment='NA'}
 if (!suppressWarnings(require("qcc"))) {
@@ -193,7 +199,7 @@ xtbl_damages <- xtable(top10damages)
 print(xtbl_damages, type='html', include.rownames=FALSE)
 ```  
 
-Now we can plot the top 10 event types for each of fatalities, injuries, and economic damages in a pareto chart to really ***see*** which ones are the worst:  
+Now we can plot the top 10 event types for each of fatalities, injuries, and economic damages in a Pareto chart to really ***see*** which ones are the worst:  
 
 ```{r pareto, echo=TRUE, results='markup', comment=NA, fig.height=10}
 pareto.chart(xtabs(n ~ EVTYPE, 
